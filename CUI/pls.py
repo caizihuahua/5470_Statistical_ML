@@ -8,7 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings('ignore')
-path = '../GKX/'
+path = './GKX/'
 
 
 ### Data preparation
@@ -61,6 +61,8 @@ data_ma = data_ma[['yyyymm'] + ma_predictors]
 # data_ma_long = pd.merge(data_ch['DATE'], data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
 # data = pd.merge(data_ch, data_ma, how='left', left_on='DATE',right_on='yyyymm', suffixes=('', '_macro'))
 
+# concate
+data = pd.merge(data_ch, data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
 
 ## Split the dataset
 def get_data_split(str, end):
@@ -99,9 +101,9 @@ for i in range(30):
     best_r2 = -np.inf
     best_K = 0
     # Fit model and choose best parameters
-    for K in tqdm(range(5,100,10),desc="year_{0}".format(i+1)):
-        pls = PLSRegression(n_components=K)
-        pls_norm = make_pipeline(StandardScaler(), pls)
+    for K in tqdm(range(5,10,10),desc="year_{0}".format(i+1)):
+        pls_norm = PLSRegression(n_components=K)
+        # pls_norm = make_pipeline(StandardScaler(), pls)
         pls_norm.fit(x_train, y_train)
         y_val_hat = pls_norm.predict(x_val).flatten()
         val_r2= r2_score(y_val,y_val_hat)
@@ -121,8 +123,8 @@ for i in range(30):
 print('R^2 for PLS: \d' % pls_oos_r2)
 print('K for PLS: \d' % pls_para)
 pls_rec = pd.DataFrame({'r^2':pls_oos_r2,'K':pls_para})
-pls_rec.to_csv("PLS.csv",index=False,sep=',')
+pls_rec.to_csv("PLS_2.csv",index=False,sep=',')
 
 
 plt.plot(pls_oos_r2)
-plt.savefig(path+'pls_oos_r2')
+plt.savefig(path+'pls_oos_r2_2.jpg')

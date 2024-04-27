@@ -49,20 +49,21 @@ data_ma['tms'] = data_ma['lty'] - data_ma['tbl']
 data_ma['dfy'] = data_ma['BAA'] - data_ma['AAA']
 data_ma = data_ma[['yyyymm'] + ma_predictors]
 
-# # Construct the dataset including all covariates
-# data_ma_long = pd.merge(data_ch['DATE'], data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
-# for cha in chas:
-#     for predictor in ma_predictors:
-#         name = cha + '_' + predictor
-#         data_ch[name] = data_ch[cha] * data_ma_long[predictor]
-# data = data_ch
+# Construct the dataset including all covariates
+data_ma_long = pd.merge(data_ch['DATE'], data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
+for cha in chas:
+    for predictor in ma_predictors:
+        name = cha + '_' + predictor
+        data_ch[name] = data_ch[cha] * data_ma_long[predictor]
+data = data_ch
 
 # # concate
 # data_ma_long = pd.merge(data_ch['DATE'], data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
 # data = pd.merge(data_ch, data_ma, how='left', left_on='DATE',right_on='yyyymm', suffixes=('', '_macro'))
 
 # concate
-data = pd.merge(data_ch, data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
+# data = pd.merge(data_ch, data_ma, left_on='DATE', right_on='yyyymm', how='left').drop('yyyymm', axis=1)
+
 
 ## Split the dataset
 def get_data_split(str, end):
@@ -77,23 +78,23 @@ def r2_score(y, yhat):
     r2 = 1 - sum((y - yhat) ** 2) / sum(y ** 2)
     return r2
 
-train_str = '1957-01-31'; train_end = '1974-12-31'
-val_str = '1975-01-31'; val_end = '1986-12-31'
-test_str = '1987-01-31'; test_end = '2016-12-31'
+init_train_str = '1957-01-31'; init_train_end = '1974-12-31'
+init_val_str = '1975-01-31'; init_val_end = '1986-12-31'
+init_test_str = '1987-01-31'; init_test_end = '2016-12-31'
 
 ### Model Fit
 ## OLS & OLS3 using Huber loss
 pls_oos_r2 = []
 pls_para = []
-for i in range(30):
-    # Get training dataset, test dataset split
-    train_str = pd.to_datetime(train_str)
-    train_end = pd.to_datetime(train_end)+pd.DateOffset(years=i)
-    val_str = pd.to_datetime(val_str)+pd.DateOffset(years=i)
-    val_end = pd.to_datetime(val_end) + pd.DateOffset(years=i)
-    oos_str = pd.to_datetime(test_str) + pd.DateOffset(years=1)
-    oos_end = pd.to_datetime(test_end)
-    
+for i in range(29,30,1):
+    # Get training dataset, test dataset split, test for one year
+    train_str = pd.to_datetime(init_train_str)
+    train_end = pd.to_datetime(init_train_end)+pd.DateOffset(years=i)
+    val_str = train_end + pd.DateOffset(years=1)
+    val_end = pd.to_datetime(init_val_end)+pd.DateOffset(years=i)
+    oos_str = val_end + pd.DateOffset(years=1)
+    oos_end = oos_str
+
     x_train, y_train = get_data_split(train_str, train_end)
     x_val, y_val = get_data_split(val_str, val_end)
     x_test, y_test = get_data_split(oos_str, oos_end)
@@ -101,30 +102,29 @@ for i in range(30):
     best_r2 = -np.inf
     best_K = 0
     # Fit model and choose best parameters
-    for K in tqdm(range(5,10,10),desc="year_{0}".format(i+1)):
-        pls_norm = PLSRegression(n_components=K)
-        # pls_norm = make_pipeline(StandardScaler(), pls)
+    for K in tqdm(range(1,4),desc="year_{0}/30".format(i+1)):
+        pls = PLSRegression(n_components=K)
+        pls_norm = make_pipeline(StandardScaler(), pls)
         pls_norm.fit(x_train, y_train)
         y_val_hat = pls_norm.predict(x_val).flatten()
         val_r2= r2_score(y_val,y_val_hat)
         if val_r2>best_r2:
             best_r2 = val_r2
             best_K = K
-            pls_para.append(best_K)
+
+    pls_para.append(best_K)
     pls = PLSRegression(n_components=best_K)
     pls_norm = make_pipeline(StandardScaler(), pls)
     pls_norm.fit(x_train, y_train)
     y_test_hat = pls_norm.predict(x_test).flatten()
     oos_r2 = r2_score(y_test,y_test_hat)
     pls_oos_r2.append(oos_r2)
+    print("r2:",oos_r2)
+    print("K :",best_K)
 
 
 # Compute 30 years' out of sample R^2 for PLS
-print('R^2 for PLS: \d' % pls_oos_r2)
-print('K for PLS: \d' % pls_para)
+print('R^2 for PLS: {0}'.format(pls_oos_r2))
+print('K for PLS: {0}'.format(pls_para))
 pls_rec = pd.DataFrame({'r^2':pls_oos_r2,'K':pls_para})
-pls_rec.to_csv("PLS_2.csv",index=False,sep=',')
-
-
-plt.plot(pls_oos_r2)
-plt.savefig(path+'pls_oos_r2_2.jpg')
+pls_rec.to_csv("PLS.csv",index=False,sep=',')

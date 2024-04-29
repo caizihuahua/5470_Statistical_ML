@@ -1,0 +1,8 @@
+predict 1987-2016
+
+Submit your report by email or paper version no later than the deadline,
+to the following address (aifin.hkust@gmail.com) with a title “MATH5470: Final Project”
+
+使用validation挑选超参数
+
+算个r2平均值
